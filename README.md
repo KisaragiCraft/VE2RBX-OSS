@@ -127,3 +127,19 @@ Temporary files when running from the packaged EXE:
 ```
 
 These temporary folders are not required for GitHub distribution.
+
+## License
+
+VE2RBX OSS is free software, licensed under the **GNU General Public License v3.0 or later (`GPL-3.0-or-later`)**. See the [LICENSE](LICENSE) file for the full text.
+
+Copyright (C) 2026 KisaragiCraft
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+### What this means for you
+
+- The converter scripts run inside Blender through its Python API (`bpy`), so VE2RBX OSS is distributed under the GPL to remain compatible with Blender's license.
+- **Files you create with VE2RBX OSS (your `.fbx`, `.glb`, `.obj` exports) are yours.** They are output of the tool and are not covered or restricted by this license. You are free to use them in commercial Roblox games or anywhere else.
+- If you modify and redistribute VE2RBX OSS itself, you must keep it open under the same GPL terms.
+
+> 日本語: VE2RBX OSS は GPL-3.0-or-later で公開しています。**本ツールで生成した FBX / GLB / OBJ などの出力物はあなたのもので、本ライセンスの制約を受けません**(商用 Roblox 作品でも自由に利用できます)。VE2RBX OSS 自体を改変して再配布する場合のみ、同じ GPL の条件で公開してください。
