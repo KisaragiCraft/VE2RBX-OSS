@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>VE2RBX OSS</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">VE2RBX OSS</p>
+          <h1><span data-ja>ローカル変換</span><span data-en>Local Conversion</span></h1>
+        </div>
+        <button class="lang-toggle" type="button" id="lang-toggle">EN</button>
+      </header>
+
+      <section class="workspace" aria-label="VE2RBX OSS converter">
+        <form class="panel input-panel" id="convert-form">
+          <div class="field-group">
+            <label for="folder-input">
+              <span data-ja>VoxEditプロジェクトフォルダ</span>
+              <span data-en>VoxEdit project folder</span>
+            </label>
+            <input id="folder-input" name="folder" type="file" webkitdirectory directory multiple />
+          </div>
+
+          <div class="divider"><span data-ja>または</span><span data-en>or</span></div>
+
+          <div class="field-group">
+            <label for="zip-input">
+              <span data-ja>ZIPファイル</span>
+              <span data-en>ZIP file</span>
+            </label>
+            <input id="zip-input" name="zip" type="file" accept=".zip,application/zip" />
+          </div>
+
+          <p class="name-note">
+            <span data-ja>フォルダまたはZIPには.vxrと.vxaが必要です。出力名にはVoxEditプロジェクト名を使います。Robloxのテクスチャ参照を安定させるため、プロジェクト名は英数字の英語名にしてください。</span>
+            <span data-en>The folder or ZIP must include .vxr and .vxa files. The VoxEdit project name is used for output names. Use English letters and numbers for project names to keep Roblox texture references reliable.</span>
+          </p>
+
+          <label class="checkbox-row">
+            <input id="animation-input" type="checkbox" />
+            <span>
+              <span data-ja>アニメーションFBXも出力する</span>
+              <span data-en>Export animation FBX</span>
+            </span>
+          </label>
+
+          <button class="primary-action" id="submit-button" type="submit">
+            <span data-ja>変換開始</span>
+            <span data-en>Start conversion</span>
+          </button>
+        </form>
+
+        <section class="panel status-panel">
+          <div class="status-head">
+            <div>
+              <p class="eyebrow"><span data-ja>状態</span><span data-en>Status</span></p>
+              <h2 id="status-text"><span data-ja>待機中</span><span data-en>Idle</span></h2>
+            </div>
+            <button class="secondary-action" type="button" id="open-output-button" disabled>
+              <span data-ja>出力フォルダを開く</span>
+              <span data-en>Open output folder</span>
+            </button>
+          </div>
+
+          <dl class="meta-list">
+            <div>
+              <dt>Job ID</dt>
+              <dd id="job-id">-</dd>
+            </div>
+            <div>
+              <dt><span data-ja>出力先</span><span data-en>Output</span></dt>
+              <dd id="output-path">-</dd>
+            </div>
+          </dl>
+
+          <pre class="log-box" id="log-box">VE2RBX OSS ready.</pre>
+        </section>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>

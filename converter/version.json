@@ -1,0 +1,32 @@
+{
+    "app_name": "VE2RBX",
+    "version": "5.8",
+    "build_id": "20260412_102848_3ace359",
+    "created_utc": "2026-04-12T10:28:48.778645+00:00",
+    "files": {
+        "VE2RBX.py": {
+            "sha256": "ba530c8008538d04cb0d676e3f51d3560d95a037131fd53bcb6b1962c8a1714e",
+            "size": 24321
+        },
+        "dumper.py": {
+            "sha256": "3338b3218b57cf45acbde179a9206788490327fcd8b899be3664aaba2bea6cde",
+            "size": 36718
+        },
+        "vxm_to_vox.py": {
+            "sha256": "5ace6fda66e4e51be328daef81cfa5c6c8e20f98227b48f45630b7f0e4774a22",
+            "size": 31986
+        },
+        "vox2obj.py": {
+            "sha256": "d06c390eb597c3f5a0c316520a9f28c037c8cdce4cfc7b9853dbf02cd8c93a3f",
+            "size": 36242
+        },
+        "OBJ2FBX.py": {
+            "sha256": "5ef34881ab6f36c7320dc293c74f63c2579350c55f4e36a495dd6c12759d62e4",
+            "size": 50432
+        },
+        "OBJ2FBXanimation.py": {
+            "sha256": "0c47ed5373da302380e2bb50368c01a21d95189211dfeeb311ad543ff90763dd",
+            "size": 68410
+        }
+    }
+}
