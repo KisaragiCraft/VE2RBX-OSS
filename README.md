@@ -18,16 +18,27 @@ Use English letters and numbers for VoxEdit project folder names. The project na
 
 ## 日本語クイックスタート
 
-1. GitHub の `Code` から `Download ZIP` を選びます。
-2. ZIP を展開します。
-3. 展開したフォルダで `python app\launcher\local_launcher.py` を実行します。
-4. ブラウザで開いた画面に VoxEdit プロジェクトフォルダ、または ZIP をドロップします。
-5. 変換ボタンを押します。
-6. 出力は `Documents\VE2RBXoutput` に作成されます。
+1. GitHub Releases から `VE2RBX.exe` をダウンロードします。
+2. `VE2RBX.exe` を起動します。
+3. ブラウザで開いた画面に VoxEdit プロジェクトフォルダ、または ZIP をドロップします。
+4. 変換ボタンを押します。
+5. 出力は `Documents\VE2RBXoutput` に作成されます。
 
 VoxEdit プロジェクト名は英数字を推奨します。日本語名でも処理できる場合がありますが、Roblox Studio 側でテクスチャ参照が崩れることがあります。
 
 ## Download And Run
+
+### Recommended: Windows EXE
+
+Download `VE2RBX.exe` from GitHub Releases and run it directly.
+
+When the browser opens, drop a VoxEdit project folder or ZIP file, then press the convert button.
+
+Outputs are written under:
+
+```text
+%USERPROFILE%\Documents\VE2RBXoutput\
+```
 
 ### Source ZIP
 
@@ -43,19 +54,11 @@ Download the source ZIP from GitHub, extract it, then run:
 python app\launcher\local_launcher.py
 ```
 
-When the browser opens, drop a VoxEdit project folder or ZIP file, then press the convert button.
-
-Outputs are written under:
+The source ZIP uses the same local browser UI and writes outputs to:
 
 ```text
 %USERPROFILE%\Documents\VE2RBXoutput\
 ```
-
-### Windows EXE
-
-When a GitHub Release includes `VE2RBX.exe`, download and run that file directly.
-
-The EXE uses the same local browser UI and writes outputs to `Documents\VE2RBXoutput`.
 
 For a no-browser smoke test:
 
