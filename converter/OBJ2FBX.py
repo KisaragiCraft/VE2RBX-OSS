@@ -1213,14 +1213,6 @@ def main(edit_dir: Path, script_dir: Path):
     WATERMARK_KEY = "VE2RBX_CreatedBy"
     WATERMARK_VAL = "Created by KisaragiKoubou"
 
-    if final_objects:
-        if len(final_objects) == 1:
-            final_objects[0].name = IMPORT_ROOT_NAME
-        else:
-            for idx, obj in enumerate(final_objects, start=1):
-                if obj:
-                    obj.name = f"{IMPORT_ROOT_NAME}_{idx:03d}"
-    
     target_for_watermark = final_objects if not KEEP_HIERARCHY_MODE else node_objects.values()
     count_wm = 0
     for o in target_for_watermark:
