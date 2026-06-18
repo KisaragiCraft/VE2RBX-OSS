@@ -6,13 +6,14 @@ import os
 import re
 import secrets
 import sys
+import threading
 import time
 import uuid
 from email import policy
 from email.parser import BytesParser
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from .jobs import jobs
 from .paths import (
@@ -36,6 +37,7 @@ DEFAULT_PORT = 8765
 JOB_ROUTE = re.compile(r"^/api/local/jobs/([a-f0-9]{32})(?:/(log|open-output))?$")
 API_TOKEN_HEADER = "X-VE2RBX-Token"
 API_TOKEN = os.environ.get("VE2RBX_OSS_API_TOKEN") or secrets.token_urlsafe(32)
+SHUTDOWN_GRACE_SECONDS = 5.0
 
 
 def _server_log(message: str) -> None:
@@ -93,6 +95,59 @@ def _has_valid_api_token(headers) -> bool:
     return headers.get(API_TOKEN_HEADER) == API_TOKEN
 
 
+class VE2RBXHTTPServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, server_address, request_handler_class):
+        super().__init__(server_address, request_handler_class)
+        self._shutdown_lock = threading.Lock()
+        self._shutdown_deadline: float | None = None
+        self._shutdown_started = False
+        self._monitor_stop = threading.Event()
+        self._monitor_thread = threading.Thread(target=self._shutdown_monitor, daemon=True)
+        self._monitor_thread.start()
+
+    def cancel_app_shutdown(self) -> None:
+        with self._shutdown_lock:
+            if not self._shutdown_started:
+                self._shutdown_deadline = None
+
+    def request_app_shutdown(self, reason: str) -> None:
+        with self._shutdown_lock:
+            if self._shutdown_started:
+                return
+            self._shutdown_deadline = time.monotonic() + SHUTDOWN_GRACE_SECONDS
+        _server_log(f"VE2RBX local app shutdown requested: {reason}")
+
+    def stop_monitor(self) -> None:
+        self._monitor_stop.set()
+        self._monitor_thread.join(timeout=1.0)
+
+    def _shutdown_monitor(self) -> None:
+        while not self._monitor_stop.wait(0.5):
+            with self._shutdown_lock:
+                deadline = self._shutdown_deadline
+                if self._shutdown_started or deadline is None:
+                    continue
+                if time.monotonic() < deadline:
+                    continue
+
+            if jobs.active_count() > 0:
+                with self._shutdown_lock:
+                    if not self._shutdown_started:
+                        self._shutdown_deadline = time.monotonic() + SHUTDOWN_GRACE_SECONDS
+                continue
+
+            with self._shutdown_lock:
+                if self._shutdown_started:
+                    return
+                self._shutdown_started = True
+
+            _server_log("VE2RBX local app shutting down after browser tab close.")
+            threading.Thread(target=self.shutdown, daemon=True).start()
+            return
+
+
 class LocalHandler(SimpleHTTPRequestHandler):
     server_version = "VE2RBXLocal/0.1"
 
@@ -118,6 +173,18 @@ class LocalHandler(SimpleHTTPRequestHandler):
             return True
         self._send_error_json(403, "invalid local API token")
         return False
+
+    def _has_query_or_header_api_token(self, parsed) -> bool:
+        query_token = parse_qs(parsed.query).get("token", [""])[0]
+        return _has_valid_api_token(self.headers) or query_token == API_TOKEN
+
+    def _discard_request_body(self) -> None:
+        try:
+            content_length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            content_length = 0
+        if content_length > 0:
+            self.rfile.read(content_length)
 
     def do_GET(self) -> None:
         parsed = urlparse(self.path)
@@ -177,6 +244,25 @@ class LocalHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         parsed = urlparse(self.path)
         path = parsed.path
+
+        if path == "/api/local/session/open":
+            self._discard_request_body()
+            if not self._require_api_token():
+                return
+            if hasattr(self.server, "cancel_app_shutdown"):
+                self.server.cancel_app_shutdown()
+            self._send_json(200, {"ok": True})
+            return
+
+        if path == "/api/local/session/close":
+            self._discard_request_body()
+            if not self._has_query_or_header_api_token(parsed):
+                self._send_error_json(403, "invalid local API token")
+                return
+            if hasattr(self.server, "request_app_shutdown"):
+                self.server.request_app_shutdown("browser session closed")
+            self._send_json(202, {"ok": True})
+            return
 
         if path == "/api/local/convert":
             if not self._require_api_token():
@@ -274,11 +360,12 @@ class LocalHandler(SimpleHTTPRequestHandler):
 
 def run(host: str = HOST, port: int = DEFAULT_PORT) -> None:
     ensure_runtime_dirs()
-    server = ThreadingHTTPServer((host, port), LocalHandler)
+    server = VE2RBXHTTPServer((host, port), LocalHandler)
     _server_log(f"VE2RBX local app: http://{host}:{port}")
     try:
         server.serve_forever()
     finally:
+        server.stop_monitor()
         server.server_close()
 
 

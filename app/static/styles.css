@@ -8,6 +8,7 @@
   --accent: #0d6b5f;
   --accent-dark: #084f47;
   --danger: #9d2f2f;
+  --warning: #946200;
   --shadow: 0 18px 45px rgba(28, 31, 35, 0.08);
   font-family:
     Inter, "Segoe UI", "Yu Gothic UI", Meiryo, system-ui, -apple-system, sans-serif;
@@ -78,6 +79,18 @@ h1 {
 h2 {
   font-size: 22px;
   line-height: 1.25;
+}
+
+#status-text[data-status="success"] {
+  color: var(--accent-dark);
+}
+
+#status-text[data-status="warning"] {
+  color: var(--warning);
+}
+
+#status-text[data-status="danger"] {
+  color: var(--danger);
 }
 
 .lang-toggle,

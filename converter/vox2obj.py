@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Set
 from collections import defaultdict
 
+INFO_PREFIX = "[VE2RBX_INFO]"
+
 # Check for Pillow
 HAS_PIL = False
 try:
@@ -739,9 +741,15 @@ def convert_vox_folder(in_vox_dir, out_obj_dir):
         if not vf.lower().endswith(".vox"): continue
         model = parse_vox(os.path.join(in_vox_dir, vf))
         if not model: continue
+        if not model.voxels:
+            print(f"{INFO_PREFIX} Skipping empty VOX model {vf} (voxel_count=0).")
+            continue
         write_palette(os.path.join(out_obj_dir, "palette.png"), model.palette)
         with open(os.path.join(out_obj_dir, mtl_filename), 'w') as m: m.write("newmtl palette\nmap_Kd palette.png\n\nnewmtl palette_emit\nmap_Kd palette.png\nKe 1 1 1\n")
         mesh = generate_mesh_data(model)
+        if not mesh.get('faces'):
+            print(f"{INFO_PREFIX} Skipping meshless VOX model {vf} after meshing.")
+            continue
         write_obj(os.path.join(out_obj_dir, f"{os.path.splitext(vf)[0]}.obj"), mesh, os.path.splitext(vf)[0], mtl_filename)
         print(f"Exported {vf}")
 

@@ -14,6 +14,10 @@ let currentLang = localStorage.getItem("ve2rbx-local-lang") || "ja";
 let currentJobId = null;
 let pollTimer = null;
 let apiToken = null;
+const sessionId =
+  window.crypto && typeof window.crypto.randomUUID === "function"
+    ? window.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 function applyLang() {
   document.documentElement.lang = currentLang;
@@ -25,8 +29,9 @@ function copy(ja, en) {
   return currentLang === "ja" ? ja : en;
 }
 
-function setStatus(ja, en) {
+function setStatus(ja, en, kind = "") {
   statusText.textContent = copy(ja, en);
+  statusText.dataset.status = kind;
 }
 
 async function api(path, options = {}) {
@@ -82,11 +87,14 @@ async function refreshJob() {
   openOutputButton.disabled = !job.output_dir;
 
   if (job.status === "queued") setStatus("待機中", "Queued");
-  if (job.status === "running") setStatus("変換中", "Running");
-  if (job.status === "succeeded") setStatus("完了", "Completed");
-  if (job.status === "failed") setStatus("失敗", "Failed");
+  if (job.status === "running") setStatus("変換中", "Running", "running");
+  if (job.status === "completed" || job.status === "succeeded") setStatus("完了", "Completed", "success");
+  if (job.status === "completed_with_warnings") {
+    setStatus("完了（警告あり）", "Completed with warnings", "warning");
+  }
+  if (job.status === "failed") setStatus("失敗", "Failed", "danger");
 
-  if (job.status === "succeeded" || job.status === "failed") {
+  if (["completed", "completed_with_warnings", "succeeded", "failed"].includes(job.status)) {
     clearInterval(pollTimer);
     pollTimer = null;
     submitButton.disabled = false;
@@ -150,11 +158,34 @@ langToggle.addEventListener("click", () => {
   applyLang();
 });
 
+function postSessionOpen() {
+  if (!apiToken) return;
+  fetch("/api/local/session/open", {
+    method: "POST",
+    headers: { "X-VE2RBX-Token": apiToken },
+    body: JSON.stringify({ session_id: sessionId }),
+  }).catch(() => {});
+}
+
+function notifySessionClosed() {
+  if (!apiToken) return;
+  const params = new URLSearchParams({ token: apiToken, session_id: sessionId });
+  const url = `/api/local/session/close?${params.toString()}`;
+  if (navigator.sendBeacon && navigator.sendBeacon(url, "")) return;
+  fetch(url, { method: "POST", keepalive: true }).catch(() => {});
+}
+
+window.addEventListener("pagehide", notifySessionClosed);
+window.addEventListener("beforeunload", notifySessionClosed);
+
 applyLang();
 const configReady = fetch("/api/local/config")
   .then((response) => response.json())
   .then((payload) => {
     if (payload?.output_root) outputPathEl.textContent = payload.output_root;
-    if (payload?.api_token) apiToken = payload.api_token;
+    if (payload?.api_token) {
+      apiToken = payload.api_token;
+      postSessionOpen();
+    }
   })
   .catch(() => {});

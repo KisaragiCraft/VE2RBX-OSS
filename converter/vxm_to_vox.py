@@ -4,11 +4,15 @@ import math
 import glob
 import re
 import io
+import json
 from pathlib import Path
 
 # ==================================================================================
 # Configuration & Constants (Hardened)
 # ==================================================================================
+
+WARNING_PREFIX = "[VE2RBX_WARNING]"
+INFO_PREFIX = "[VE2RBX_INFO]"
 
 def transform_coord(vx_x, vx_y, vx_z, size_x, size_y, size_z):
     """
@@ -583,11 +587,42 @@ def convert_vxm_folder(project_dir: Path, out_vox_dir: Path, pivot_txt: Path, vx
 
     parser = VxmParser()
     all_vxm_data = []
+    empty_vxm_data = []
+    warnings = []
     
     for path in vxm_files:
-        # 既存 main() 内のロジックから「入力/出力フォルダ周り」を書き換える形で使用
-        data = parser.parse(str(path))
+        try:
+            # 既存 main() 内のロジックから「入力/出力フォルダ周り」を書き換える形で使用
+            data = parser.parse(str(path))
+        except Exception as exc:
+            message = f"Skipping VXM part '{path.name}' after parse error: {exc}"
+            warnings.append({"part": path.name, "message": str(exc)})
+            print(f"{WARNING_PREFIX} {message}")
+            continue
+
+        if not data.voxel_grid:
+            empty_vxm_data.append(data)
+            print(f"{INFO_PREFIX} Skipping empty VXM part '{data.basename}' (voxel_grid=0).")
+            continue
+
         all_vxm_data.append(data)
+
+    report_path = out_vox_dir.parent / "vxm_conversion_report.json"
+    report = {
+        "converted_parts": [vxm.basename for vxm in all_vxm_data],
+        "skipped_empty_parts": [vxm.basename for vxm in empty_vxm_data],
+        "warnings": warnings,
+    }
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    if not all_vxm_data:
+        if warnings:
+            preview = "; ".join(f"{item['part']}: {item['message']}" for item in warnings[:5])
+            suffix = " ..." if len(warnings) > 5 else ""
+            raise RuntimeError(f"No convertible VXM parts remain after warnings: {preview}{suffix}")
+        skipped = ", ".join(report["skipped_empty_parts"][:10])
+        suffix = " ..." if len(report["skipped_empty_parts"]) > 10 else ""
+        raise RuntimeError(f"No visible voxel data found in referenced VXM parts. Empty parts: {skipped}{suffix}")
 
     unified_palette, unified_is_emissive = generate_unified_palette(all_vxm_data)
     
@@ -610,6 +645,14 @@ def convert_vxm_folder(project_dir: Path, out_vox_dir: Path, pivot_txt: Path, vx
             color_map_cache,
         )
         pivot_lines.append(f"{vxm.basename}.vxm: {vxm.pivot[0]} {vxm.pivot[1]} {vxm.pivot[2]}")
+
+    for vxm in empty_vxm_data:
+        pivot_lines.append(f"{vxm.basename}.vxm: {vxm.pivot[0]} {vxm.pivot[1]} {vxm.pivot[2]}")
+
+    if warnings:
+        print(f"{WARNING_PREFIX} VXM conversion completed with {len(warnings)} skipped part warning(s).")
+    if empty_vxm_data:
+        print(f"{INFO_PREFIX} VXM conversion skipped {len(empty_vxm_data)} empty part(s): {', '.join(report['skipped_empty_parts'][:10])}")
 
     pivot_txt.parent.mkdir(parents=True, exist_ok=True)
     with pivot_txt.open("w", encoding="utf-8") as f:

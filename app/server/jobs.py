@@ -14,6 +14,8 @@ from contextlib import redirect_stderr, redirect_stdout
 
 from .paths import CONVERTER_ENTRYPOINT, JOB_ROOT, OUTPUT_ROOT, derive_project_name, sanitize_output_name
 
+WARNING_PREFIX = "[VE2RBX_WARNING]"
+
 
 @dataclass
 class LocalJob:
@@ -66,6 +68,7 @@ class LocalJob:
             "output_dir": str(output_dir) if output_dir else None,
             "log_path": str(self.log_path),
             "error": self.error,
+            "has_warnings": self.status == "completed_with_warnings",
         }
 
 
@@ -142,6 +145,17 @@ class JobManager:
         with job.log_path.open("a", encoding="utf-8", errors="replace") as handle:
             handle.write(message)
 
+    def _job_has_warnings(self, job: LocalJob) -> bool:
+        try:
+            return WARNING_PREFIX in job.log_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+
+    def _final_status(self, job: LocalJob) -> str:
+        if job.exit_code != 0:
+            return "failed"
+        return "completed_with_warnings" if self._job_has_warnings(job) else "completed"
+
     def _run(self, job: LocalJob) -> None:
         job.status = "running"
         job.started_at = time.time()
@@ -194,7 +208,7 @@ class JobManager:
             for line in process.stdout:
                 self._append_log(job, line)
             job.exit_code = process.wait()
-            job.status = "succeeded" if job.exit_code == 0 else "failed"
+            job.status = self._final_status(job)
         except Exception:
             raise
 
@@ -233,7 +247,7 @@ class JobManager:
             sys.argv = old_argv
             sys.path = old_path
             os.chdir(old_cwd)
-        job.status = "succeeded" if job.exit_code == 0 else "failed"
+        job.status = self._final_status(job)
 
     def open_output(self, job_id: str) -> Path:
         job = self.get(job_id)
