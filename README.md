@@ -4,9 +4,20 @@
 
 *Other languages: [日本語 (Japanese)](README.ja.md)*
 
-<!-- HERO IMAGE — save the side-by-side as assets/hero.png, then delete this comment and uncomment the line below:
-![A VoxEdit project (left) converted into Roblox Studio (right)](assets/hero.png)
--->
+<table>
+  <tr>
+    <td align="center"><strong>1. Your VoxEdit project</strong></td>
+    <td align="center"><strong>2. Standard FBX export</strong></td>
+    <td align="center"><strong>3. VE2RBX</strong></td>
+  </tr>
+  <tr>
+    <td><img src="assets/compare_color_VoxEdit.png" width="100%"></td>
+    <td><img src="assets/compare_color_Before.png" width="100%"></td>
+    <td><img src="assets/compare_color_After.png" width="100%"></td>
+  </tr>
+</table>
+
+<sub>Bring an existing VoxEdit asset into Roblox Studio with its colors intact — no broken geometry, no blurred edges.</sub>
 
 ## Why VE2RBX?
 
@@ -14,15 +25,25 @@ Made models in VoxEdit and want to use them in Roblox? The usual export path ten
 
 **Crisp colors, no bleeding.**
 VoxEdit models are pixel-art-like: every face is a flat color with hard edges. Ordinary texture baking blurs those boundaries. VE2RBX instead builds a separate face for each color and fills it with a single palette color, so edges stay sharp and colors never mix.
-<!-- ![Standard export (blurred edges) vs VE2RBX (sharp edges)](assets/compare_color.png) -->
 
-**Glow (emissive) preserved.**
-Emissive colors are separated into their own parts so they can actually glow in Roblox. (Split glow-only parts in VoxEdit first, since glow is applied per part.)
-<!-- ![Emissive parts glowing in Roblox](assets/compare_glow.png) -->
+**Glow (emissive) you can control.**
+VoxEdit's emissive colors can't move to Roblox directly, and Roblox's `SurfaceAppearance` lights up the whole model it is attached to. VE2RBX splits the parts that contain emissive colors into their own models, so you can add `SurfaceAppearance` to just those — lighting only the parts that should glow, not the entire model.
+
+<table>
+  <tr>
+    <td align="center"><strong>As imported (no SurfaceAppearance)</strong></td>
+    <td align="center"><strong>SurfaceAppearance added (shown at night)</strong></td>
+  </tr>
+  <tr>
+    <td><img src="assets/compare_glow_Before.png" width="100%"></td>
+    <td><img src="assets/compare_glow_After.png" width="100%"></td>
+  </tr>
+</table>
 
 **Animations carry over.**
 VoxEdit animations transfer straight into Roblox.
-<!-- ![A VoxEdit animation playing in Roblox](assets/anim.gif) -->
+
+<div align="center"><img src="assets/anim.gif" width="480"></div>
 
 **Roblox-aware geometry.**
 Roblox caps each mesh at 20,000 vertices. VE2RBX merges VoxEdit's many small parts so you don't import a pile of separate models, and automatically splits into new parts before hitting the limit. For animated models, moving parts are kept separate while static parts are merged.
@@ -31,6 +52,17 @@ Roblox caps each mesh at 20,000 vertices. VE2RBX merges VoxEdit's many small par
 No account, no billing, and your project never leaves your computer.
 
 > Output formats: `.fbx`, `.glb`, `.obj`
+
+## Gallery
+
+A few projects converted with VE2RBX:
+
+<table>
+  <tr>
+    <td><img src="assets/hero_After1.png" width="100%"></td>
+    <td><img src="assets/hero_After2.png" width="100%"></td>
+  </tr>
+</table>
 
 ## Quick Start
 
@@ -60,6 +92,8 @@ Each conversion creates a folder named after your project inside `Documents\VE2R
 **Static models:** import `<Name>.fbx`. After import, run `<Name>_roblox_post_import.luau` from the command bar if you want the imported MeshParts anchored and visual-only.
 
 **Animations:** import `<Name>_anim.fbx` first as the animation rig/model, then assign each `<Name>_animclip_<Clip>.fbx` through Roblox Studio's animation clip editor.
+
+**Glow:** for a model that contains emissive colors, add a `SurfaceAppearance` to the separated emissive part(s) to make just those parts glow.
 
 ## Run From Source
 
