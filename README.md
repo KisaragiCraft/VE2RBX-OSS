@@ -5,7 +5,7 @@
 *Other languages: [日本語 (Japanese)](README.ja.md)*
 
 <p align="center">
-  <img src="assets/demo.gif" width="100%" alt="VE2RBX demo — VoxEdit assets converted into Roblox Studio">
+  <video src="https://github.com/KisaragiCraft/VE2RBX-OSS/raw/main/assets/demo.mp4" controls muted width="100%"></video>
 </p>
 
 <p align="center"><sub>VoxEdit / The Sandbox → Roblox Studio — colors, glow, and animation intact. &nbsp;·&nbsp; <a href="https://github.com/KisaragiCraft/VE2RBX-OSS/releases">Download VE2RBX.exe →</a></sub></p>
