@@ -1,9 +1,5 @@
 import os
 import struct
-import math
-import glob
-import re
-import io
 import json
 from pathlib import Path
 
@@ -26,37 +22,6 @@ def transform_coord(vx_x, vx_y, vx_z, size_x, size_y, size_z):
 # ==================================================================================
 # Utils
 # ==================================================================================
-
-def find_input_folder(base_dir, force_target=None):
-    if force_target:
-        path = os.path.join(base_dir, force_target)
-        if os.path.isdir(path):
-            return path
-    candidates = []
-    for d in os.listdir(base_dir):
-        if d.startswith("OutputVXM") and os.path.isdir(d):
-            m = re.match(r"OutputVXM\s*(\d+)", d)
-            if m:
-                num = int(m.group(1))
-                candidates.append((num, d))
-    if not candidates: return None
-    candidates.sort(key=lambda x: x[0], reverse=True)
-    return candidates[0][1]
-
-def create_output_folder(base_dir):
-    existing_nums = set()
-    for d in os.listdir(base_dir):
-        if d.startswith("OutputVOX ") and os.path.isdir(d):
-            try:
-                num = int(d.split(" ")[1])
-                existing_nums.add(num)
-            except ValueError:
-                continue
-    m = 1
-    while m in existing_nums: m += 1
-    out_name = f"OutputVOX {m}"
-    os.makedirs(out_name, exist_ok=True)
-    return out_name
 
 # ==================================================================================
 # VXM Parser (Hardened)
@@ -674,7 +639,6 @@ def run_ve2rbx(project_dir: Path, edit_dir: Path) -> None:
 
 import sys
 import argparse
-import traceback
 
 def setup_logger(log_path: str):
     if not log_path:
