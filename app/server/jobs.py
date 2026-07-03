@@ -194,23 +194,20 @@ class JobManager:
             return
 
     def _run_subprocess(self, job: LocalJob) -> None:
-        try:
-            process = subprocess.Popen(
-                job.command,
-                cwd=str(CONVERTER_ENTRYPOINT.parent),
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            assert process.stdout is not None
-            for line in process.stdout:
-                self._append_log(job, line)
-            job.exit_code = process.wait()
-            job.status = self._final_status(job)
-        except Exception:
-            raise
+        process = subprocess.Popen(
+            job.command,
+            cwd=str(CONVERTER_ENTRYPOINT.parent),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+        assert process.stdout is not None
+        for line in process.stdout:
+            self._append_log(job, line)
+        job.exit_code = process.wait()
+        job.status = self._final_status(job)
 
     def _run_in_process(self, job: LocalJob) -> None:
         argv = [
