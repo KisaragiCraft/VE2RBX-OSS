@@ -19,6 +19,7 @@ from ve2rbx_blender_common import (
     read_vox_size, parse_vox_sizes, pivot_norm_to_blender_local, apply_pivot_origin,
     ascii_safe_name, parse_pivot_txt, select_final_objects, prepare_clean_dir,
     normalize_obj_material_texture_paths, write_palette_png_deterministic, run_launcher_mode,
+    export_static_obj, export_static_glb,
 )
 
 # =========================================================================================
@@ -842,6 +843,8 @@ def export_animation_outputs(
         export_dir,
         dest_dir,
         export_palette if export_palette.exists() else dest_dir / "palette.png",
+        EXPORT_BASE_NAME,
+        GLB_EXPORT_FILE_NAME,
         include_all_actions=include_all_actions,
     )
 
@@ -953,115 +956,7 @@ def export_rbx_model_fbx(final_objects: List[bpy.types.Object], dest_dir: Path, 
 
 
 
-def export_static_obj(final_objects: List[bpy.types.Object], export_dir: Path, dest_dir: Path, palette_src: Path) -> Path:
-    export_obj_dir = export_dir / OBJ_EXPORT_DIR_NAME
-    out_obj_dir = dest_dir / OBJ_EXPORT_DIR_NAME
-    prepare_clean_dir(export_obj_dir)
-    if out_obj_dir.exists():
-        shutil.rmtree(out_obj_dir)
 
-    export_obj = export_obj_dir / f"{EXPORT_BASE_NAME}.obj"
-    export_palette = export_obj_dir / "palette.png"
-    if palette_src.exists():
-        shutil.copy2(palette_src, export_palette)
-
-    selected = select_final_objects(final_objects)
-    if not selected:
-        raise RuntimeError("No objects selected for OBJ export.")
-
-    log(f"Exporting OBJ folder to: {export_obj_dir}")
-    if hasattr(bpy.ops.wm, "obj_export"):
-        try:
-            bpy.ops.wm.obj_export(
-                filepath=str(export_obj),
-                export_selected_objects=True,
-                export_materials=True,
-                path_mode='RELATIVE',
-                forward_axis='NEGATIVE_Z',
-                up_axis='Y',
-            )
-        except TypeError:
-            bpy.ops.wm.obj_export(
-                filepath=str(export_obj),
-                export_selected_objects=True,
-                export_materials=True,
-            )
-    else:
-        bpy.ops.export_scene.obj(
-            filepath=str(export_obj),
-            use_selection=True,
-            use_materials=True,
-            path_mode='RELATIVE',
-            axis_forward='-Z',
-            axis_up='Y',
-        )
-
-    if not export_obj.exists():
-        raise FileNotFoundError(f"OBJ export did not create {export_obj}")
-    if palette_src.exists() and not export_palette.exists():
-        shutil.copy2(palette_src, export_palette)
-
-    normalize_obj_material_texture_paths(export_obj_dir)
-    shutil.copytree(export_obj_dir, out_obj_dir)
-    log(f"Saved OBJ folder to {out_obj_dir} via ASCII staging")
-    return out_obj_dir
-
-def export_static_glb(
-    final_objects: List[bpy.types.Object],
-    export_dir: Path,
-    dest_dir: Path,
-    palette_src: Path,
-    include_all_actions: bool = False,
-) -> Path:
-    export_glb = export_dir / GLB_EXPORT_FILE_NAME
-    out_glb = dest_dir / GLB_EXPORT_FILE_NAME
-    legacy_gltf_dir = dest_dir / f"{EXPORT_BASE_NAME}_gltf"
-    if out_glb.exists():
-        out_glb.unlink()
-    if legacy_gltf_dir.exists():
-        shutil.rmtree(legacy_gltf_dir)
-
-    selected = select_final_objects(final_objects)
-    if not selected:
-        raise RuntimeError("No objects selected for GLB export.")
-
-    log(f"Exporting GLB to: {export_glb}")
-    gltf_kwargs = {
-        "filepath": str(export_glb),
-        "use_selection": True,
-        "export_format": 'GLB',
-        "export_yup": True,
-        "export_extras": True,
-    }
-    if include_all_actions:
-        gltf_kwargs.update({
-            "export_animation_mode": 'ACTIONS',
-            "export_anim_single_armature": True,
-            "export_nla_strips": False,
-            "export_animations": True,
-        })
-
-    try:
-        bpy.ops.export_scene.gltf(**gltf_kwargs)
-    except TypeError:
-        fallback_kwargs = {
-            "filepath": str(export_glb),
-            "use_selection": True,
-            "export_format": 'GLB',
-        }
-        if include_all_actions:
-            fallback_kwargs.update({
-                "export_nla_strips": False,
-                "export_animations": True,
-            })
-        bpy.ops.export_scene.gltf(**fallback_kwargs)
-
-    if not export_glb.exists():
-        raise FileNotFoundError(f"GLB export did not create {export_glb}")
-
-    shutil.copy2(export_glb, out_glb)
-    log(f"Saved GLB to {out_glb} via ASCII staging")
-    return out_glb
 
 # =========================================================================================
 # Main Logic

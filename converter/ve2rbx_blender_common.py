@@ -419,6 +419,125 @@ def normalize_obj_material_texture_paths(obj_dir: Path) -> None:
                 normalized_lines.append(line)
         mtl_path.write_text("\n".join(normalized_lines) + "\n", encoding="utf-8")
 
+def export_static_obj(
+    final_objects: List[bpy.types.Object],
+    export_dir: Path,
+    dest_dir: Path,
+    palette_src: Path,
+    base_name: str,
+    obj_dir_name: str,
+) -> Path:
+    export_obj_dir = export_dir / obj_dir_name
+    out_obj_dir = dest_dir / obj_dir_name
+    prepare_clean_dir(export_obj_dir)
+    if out_obj_dir.exists():
+        shutil.rmtree(out_obj_dir)
+
+    export_obj = export_obj_dir / f"{base_name}.obj"
+    export_palette = export_obj_dir / "palette.png"
+    if palette_src.exists():
+        shutil.copy2(palette_src, export_palette)
+
+    selected = select_final_objects(final_objects)
+    if not selected:
+        raise RuntimeError("No objects selected for OBJ export.")
+
+    log(f"Exporting OBJ folder to: {export_obj_dir}")
+    if hasattr(bpy.ops.wm, "obj_export"):
+        try:
+            bpy.ops.wm.obj_export(
+                filepath=str(export_obj),
+                export_selected_objects=True,
+                export_materials=True,
+                path_mode='RELATIVE',
+                forward_axis='NEGATIVE_Z',
+                up_axis='Y',
+            )
+        except TypeError:
+            bpy.ops.wm.obj_export(
+                filepath=str(export_obj),
+                export_selected_objects=True,
+                export_materials=True,
+            )
+    else:
+        bpy.ops.export_scene.obj(
+            filepath=str(export_obj),
+            use_selection=True,
+            use_materials=True,
+            path_mode='RELATIVE',
+            axis_forward='-Z',
+            axis_up='Y',
+        )
+
+    if not export_obj.exists():
+        raise FileNotFoundError(f"OBJ export did not create {export_obj}")
+    if palette_src.exists() and not export_palette.exists():
+        shutil.copy2(palette_src, export_palette)
+
+    normalize_obj_material_texture_paths(export_obj_dir)
+    shutil.copytree(export_obj_dir, out_obj_dir)
+    log(f"Saved OBJ folder to {out_obj_dir} via ASCII staging")
+    return out_obj_dir
+
+def export_static_glb(
+    final_objects: List[bpy.types.Object],
+    export_dir: Path,
+    dest_dir: Path,
+    palette_src: Path,
+    base_name: str,
+    glb_file_name: str,
+    include_all_actions: bool = False,
+) -> Path:
+    export_glb = export_dir / glb_file_name
+    out_glb = dest_dir / glb_file_name
+    legacy_gltf_dir = dest_dir / f"{base_name}_gltf"
+    if out_glb.exists():
+        out_glb.unlink()
+    if legacy_gltf_dir.exists():
+        shutil.rmtree(legacy_gltf_dir)
+
+    selected = select_final_objects(final_objects)
+    if not selected:
+        raise RuntimeError("No objects selected for GLB export.")
+
+    log(f"Exporting GLB to: {export_glb}")
+    gltf_kwargs = {
+        "filepath": str(export_glb),
+        "use_selection": True,
+        "export_format": 'GLB',
+        "export_yup": True,
+        "export_extras": True,
+    }
+    if include_all_actions:
+        gltf_kwargs.update({
+            "export_animation_mode": 'ACTIONS',
+            "export_anim_single_armature": True,
+            "export_nla_strips": False,
+            "export_animations": True,
+        })
+
+    try:
+        bpy.ops.export_scene.gltf(**gltf_kwargs)
+    except TypeError:
+        fallback_kwargs = {
+            "filepath": str(export_glb),
+            "use_selection": True,
+            "export_format": 'GLB',
+        }
+        if include_all_actions:
+            fallback_kwargs.update({
+                "export_nla_strips": False,
+                "export_animations": True,
+            })
+        bpy.ops.export_scene.gltf(**fallback_kwargs)
+
+    if not export_glb.exists():
+        raise FileNotFoundError(f"GLB export did not create {export_glb}")
+
+    shutil.copy2(export_glb, out_glb)
+    log(f"Saved GLB to {out_glb} via ASCII staging")
+    return out_glb
+
 def run_launcher_mode(script_path: Path) -> None:
         print("[OBJ2FBX-Launcher] Environment: Standard Python")
         script_dir = script_path.parent
@@ -510,4 +629,3 @@ def run_launcher_mode(script_path: Path) -> None:
         except Exception as e:
             print(f"[OBJ2FBX-Launcher] Unexpected error: {e}")
             sys.exit(1)
-

@@ -18,6 +18,7 @@ from ve2rbx_blender_common import (
     read_vox_size, parse_vox_sizes, pivot_norm_to_blender_local, apply_pivot_origin,
     ascii_safe_name, parse_pivot_txt, select_final_objects, prepare_clean_dir,
     normalize_obj_material_texture_paths, write_palette_png_deterministic, run_launcher_mode,
+    export_static_obj, export_static_glb,
 )
 
 # =========================================================================================
@@ -194,94 +195,7 @@ def parse_vxr_vxa(path: Path) -> Tuple[Dict[str, NodeInfo], List[str], List[str]
 
 
 
-def export_static_obj(final_objects: List[bpy.types.Object], export_dir: Path, dest_dir: Path, palette_src: Path) -> Path:
-    export_obj_dir = export_dir / OBJ_EXPORT_DIR_NAME
-    out_obj_dir = dest_dir / OBJ_EXPORT_DIR_NAME
-    prepare_clean_dir(export_obj_dir)
-    if out_obj_dir.exists():
-        shutil.rmtree(out_obj_dir)
 
-    export_obj = export_obj_dir / f"{EXPORT_BASE_NAME}.obj"
-    export_palette = export_obj_dir / "palette.png"
-    if palette_src.exists():
-        shutil.copy2(palette_src, export_palette)
-
-    selected = select_final_objects(final_objects)
-    if not selected:
-        raise RuntimeError("No objects selected for OBJ export.")
-
-    log(f"Exporting OBJ folder to: {export_obj_dir}")
-    if hasattr(bpy.ops.wm, "obj_export"):
-        try:
-            bpy.ops.wm.obj_export(
-                filepath=str(export_obj),
-                export_selected_objects=True,
-                export_materials=True,
-                path_mode='RELATIVE',
-                forward_axis='NEGATIVE_Z',
-                up_axis='Y',
-            )
-        except TypeError:
-            bpy.ops.wm.obj_export(
-                filepath=str(export_obj),
-                export_selected_objects=True,
-                export_materials=True,
-            )
-    else:
-        bpy.ops.export_scene.obj(
-            filepath=str(export_obj),
-            use_selection=True,
-            use_materials=True,
-            path_mode='RELATIVE',
-            axis_forward='-Z',
-            axis_up='Y',
-        )
-
-    if not export_obj.exists():
-        raise FileNotFoundError(f"OBJ export did not create {export_obj}")
-    if palette_src.exists() and not export_palette.exists():
-        shutil.copy2(palette_src, export_palette)
-
-    normalize_obj_material_texture_paths(export_obj_dir)
-    shutil.copytree(export_obj_dir, out_obj_dir)
-    log(f"Saved OBJ folder to {out_obj_dir} via ASCII staging")
-    return out_obj_dir
-
-def export_static_glb(final_objects: List[bpy.types.Object], export_dir: Path, dest_dir: Path, palette_src: Path) -> Path:
-    export_glb = export_dir / GLB_EXPORT_FILE_NAME
-    out_glb = dest_dir / GLB_EXPORT_FILE_NAME
-    legacy_gltf_dir = dest_dir / f"{EXPORT_BASE_NAME}_gltf"
-    if out_glb.exists():
-        out_glb.unlink()
-    if legacy_gltf_dir.exists():
-        shutil.rmtree(legacy_gltf_dir)
-
-    selected = select_final_objects(final_objects)
-    if not selected:
-        raise RuntimeError("No objects selected for GLB export.")
-
-    log(f"Exporting GLB to: {export_glb}")
-    try:
-        bpy.ops.export_scene.gltf(
-            filepath=str(export_glb),
-            use_selection=True,
-            export_format='GLB',
-            export_yup=True,
-            export_extras=True,
-        )
-    except TypeError:
-        bpy.ops.export_scene.gltf(
-            filepath=str(export_glb),
-            use_selection=True,
-            export_format='GLB',
-        )
-
-    if not export_glb.exists():
-        raise FileNotFoundError(f"GLB export did not create {export_glb}")
-
-    shutil.copy2(export_glb, out_glb)
-    log(f"Saved GLB to {out_glb} via ASCII staging")
-    return out_glb
 
 # =========================================================================================
 # Main Logic
@@ -807,8 +721,8 @@ def main(edit_dir: Path, script_dir: Path):
             log(f"Copied ASCII export texture folder to {out_fbm}")
         log(f"Saved .fbx with textures to {out_fbx} via ASCII staging")
 
-        export_static_obj(final_objects, export_dir, dest_dir, export_palette)
-        export_static_glb(final_objects, export_dir, dest_dir, export_palette)
+        export_static_obj(final_objects, export_dir, dest_dir, export_palette, EXPORT_BASE_NAME, OBJ_EXPORT_DIR_NAME)
+        export_static_glb(final_objects, export_dir, dest_dir, export_palette, EXPORT_BASE_NAME, GLB_EXPORT_FILE_NAME)
     else:
         log("No objects to export.")
 
