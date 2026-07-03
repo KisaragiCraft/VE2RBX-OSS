@@ -19,7 +19,6 @@ VOXEL_SCALE = 0.1  # 1 voxel = 0.1m
 APPLY_PIVOT_WORLD = True   # Enable VXM-pivot-based origin application
 KEEP_HIERARCHY_MODE = False # Skip Bake & Join, export full hierarchy
 OBJ_IS_PIVOT_CENTERED = False # False = OBJ origin is VoxEdit (0,0,0). True = OBJ origin is Pivot.
-OBJ_IS_PIVOT_CENTERED = False # False = OBJ origin is VoxEdit (0,0,0). True = OBJ origin is Pivot.
 IMPORT_ROT_AS_BASE = True  # True=Keep Import Rot as Base, False=Bake Import Rot (Not recommended yet)
 EXPORT_BASE_NAME = "ve2rbx_output_anim"
 OBJ_EXPORT_DIR_NAME = f"{EXPORT_BASE_NAME}_obj"
@@ -158,58 +157,11 @@ def find_edit_dir(script_dir: Path) -> Path:
     return script_dir
 
 # =========================================================================================
-# PNG Utils (Signature Injection)
+# PNG Utils
 # =========================================================================================
-PNG_SIGNATURE_KEY = "VE2RBX_CreatedBy"
-PNG_SIGNATURE_VAL = "Created by KisaragiKoubou"
-
 def _png_crc(chunk_type: bytes, data: bytes) -> int:
     import zlib
     return zlib.crc32(chunk_type + data) & 0xffffffff
-
-def inject_png_text_chunk(png_path: Path, key: str, value: str):
-    # Insert tEXt chunk before IEND. Safe: no pixel changes.
-    import struct
-
-    if not png_path.exists():
-        raise FileNotFoundError(f"PNG not found: {png_path}")
-
-    b = png_path.read_bytes()
-    sig = b[:8]
-    if sig != b"\x89PNG\r\n\x1a\n":
-        raise ValueError("Not a PNG file")
-
-    out = bytearray()
-    out += sig
-
-    i = 8
-    inserted = False
-    text_data = (key + "\x00" + value).encode("latin-1", errors="replace")  # PNG tEXt is ISO-8859-1
-    chunk_type = b"tEXt"
-    chunk_len = struct.pack(">I", len(text_data))
-    chunk_crc = struct.pack(">I", _png_crc(chunk_type, text_data))
-    text_chunk = chunk_len + chunk_type + text_data + chunk_crc
-
-    while i < len(b):
-        if i + 8 > len(b):
-            break
-        length = struct.unpack(">I", b[i:i+4])[0]
-        ctype = b[i+4:i+8]
-        chunk_total = 12 + length
-        chunk_bytes = b[i:i+chunk_total]
-
-        if (ctype == b"IEND") and (not inserted):
-            out += text_chunk
-            inserted = True
-
-        out += chunk_bytes
-        i += chunk_total
-
-    if not inserted:
-        # If somehow no IEND found, fail hard (should not happen for valid PNG)
-        raise ValueError("IEND chunk not found; invalid PNG?")
-
-    png_path.write_bytes(bytes(out))
 
 def _png_pack_chunk(chunk_type: bytes, data: bytes) -> bytes:
     import struct
