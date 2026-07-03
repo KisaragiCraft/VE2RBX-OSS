@@ -5,10 +5,8 @@ import argparse
 from typing import List, Tuple, Optional, Dict
 from dataclasses import dataclass, field
 import os
-import glob
 import datetime
 import traceback
-import platform
 import re
 from pathlib import Path
 import logging
@@ -146,143 +144,6 @@ class BinaryReader:
 
 
 # --- VXR Parsing ---
-
-def parse_vxr(path: str) -> Tuple[Node, bytes]:
-    with open(path, 'rb') as f:
-        data = f.read()
-    
-    reader = BinaryReader(data)
-    
-    # Header
-    sig = reader.read_bytes(3)
-    if sig != b'VXR':
-        raise ValueError("Invalid VXR signature")
-    
-    # Capture first 25 bytes as partial "Magic" for check comparison if needed,
-    # or just rely on VXR parsing success.
-    # The spec says "VXA Magic Number (17 bytes) matches".
-    # We will grab the first 20-30 bytes of VXR to debug/compare later.
-    magic_signature = data[0:20] 
-
-    reader.skip(1) # Unknown
-    _ = reader.read_string() # Default Anim Name
-    # reader.skip(1) # Separator 00 (Removed based on inspection: seems usually handled by string loop or missing)
-    # Actually, from dump inspection: Name\0 -> Separator(or next)\x01.
-    # We'll just read data.
-    
-    # Rig Count (Number of Root Nodes, usually 1)
-    rig_count = reader.read_u32()
-    
-    # Unknown bytes (Spec said 8, but simple skip is fragile)
-    # VXR Constants
-    VXR_NODE_META_LEN = 29
-    
-    # Dynamics skip: Scan first 4096 bytes for a valid Root Node Structure
-    # Structure: [Name CString] [VXM CString] [Meta 29 bytes] [ChildCount u32]
-    # Enhanced: Validate meta structure to avoid false positives (template identifiers)
-    valid_candidates = []  # List of (offset, name) tuples
-    search_limit = 4096
-    start_search = reader.tell()
-    
-    while reader.tell() - start_search < search_limit:
-        current_pos = reader.tell()
-        
-        # Check if valid Node starts here
-        ok1, name1, bytes1 = reader.try_read_cstring_at(current_pos)
-        if ok1 and len(name1.strip()) >= 1:
-             check_pos2 = current_pos + bytes1
-             ok2, name2, bytes2 = reader.try_read_cstring_at(check_pos2)
-             
-             if ok2:
-                 # meta_start is right after 2nd CString
-                 meta_start = check_pos2 + bytes2
-                 
-                 # Validation 1: Check meta first 4 bytes == 0x00000001 (little-endian)
-                 meta_header = reader.peek_u32_at(meta_start)
-                 if meta_header is None or meta_header != 1:
-                     reader.skip(1)
-                     continue
-                 
-                 # Validation 2: Check meta region (29 bytes) doesn't have too many printable ASCII
-                 # Template identifiers have strings like "Controller" in meta area
-                 if meta_start + VXR_NODE_META_LEN <= len(reader.data):
-                     meta_bytes = reader.data[meta_start : meta_start + VXR_NODE_META_LEN]
-                     printable_count = sum(1 for b in meta_bytes if 32 <= b <= 126)
-                     if printable_count >= 4:
-                         # Too many printable chars - likely false positive
-                         reader.skip(1)
-                         continue
-                 
-                 # Check Child Count at expected offset
-                 cc_offset = meta_start + VXR_NODE_META_LEN
-                 cc = reader.peek_u32_at(cc_offset)
-                 
-                 if cc is not None and 0 <= cc <= 5000:
-                     # Valid Root candidate found!
-                     valid_candidates.append((current_pos, name1))
-        
-        reader.skip(1)
-    
-    # Select the candidate with smallest offset (first valid node)
-    if not valid_candidates:
-        raise ValueError("Could not find valid Root Node in VXR.")
-    
-    valid_candidates.sort(key=lambda x: x[0])
-    best_offset, best_name = valid_candidates[0]
-    reader.offset = best_offset
-    print(f"[VXR Parse] Found Root Node '{best_name}' at offset {best_offset} (candidates: {len(valid_candidates)})")
-
-    # Recursive Parse Function
-    def parse_node_recursive() -> Node:
-        name = reader.read_string()
-        vxm_name = reader.read_string()  # VXM file name (e.g. "Hip.vxm" / empty if none)
-        
-        # Skip Fixed Metadata
-        reader.skip(VXR_NODE_META_LEN)
-        
-        # Read Child Count
-        child_count = reader.read_u32()
-        
-        if child_count > 5000:
-             raise ValueError(f"Invalid child count {child_count} at {reader.tell()-4} (Node: {name})")
-
-        # Log for debugging
-        # print(f"[Debug] Node: {name}, VXM: {vxm_name}, Children: {child_count}")
-
-        # Recursive Children
-        children = []
-        for _ in range(child_count):
-            children.append(parse_node_recursive())
-            
-        # 空文字や無効文字列は None 扱い
-        if vxm_name is not None:
-            vxm_name = vxm_name.strip()
-            if vxm_name == "":
-                vxm_name = None
-    
-        return Node(name, child_count, vxm_name, children)
-
-    roots = []
-    # If Rig Count > 1000, it's garbage?
-    if rig_count > 1000:
-         # Fallback?
-         rig_count = 1
-         
-    for _ in range(rig_count):
-        roots.append(parse_node_recursive())
-        
-    if not roots:
-        return Node("Empty", 0), magic_signature
-        
-    # If multiple roots, create a dummy holder?
-    # Or usually just 1 Controller.
-    if len(roots) == 1:
-        return roots[0], magic_signature
-    else:
-        # Spec format expects single tree?
-        # Create a virtual root (no VXM attached)
-        virtual = Node(name="SceneRoot", child_count=len(roots), vxm_name=None, children=roots)
-        return virtual, magic_signature
 
 
 def parse_vxr_fixed(path: str) -> Tuple[Node, bytes]:
