@@ -1,0 +1,12 @@
+# Node Hierarchy
+ [0] Controller
+  └ [1] Body / Body.vxm
+
+# Animation
+[0] Controller：
+0KF => POS X:0.000000,Y:0.000000,Z:0.000000  / ROT X:0.000000,Y:0.000000,Z:0.000000 | EASE PX:1(linear),PY:1(linear),PZ:1(linear),RX:1(linear),RY:1(linear),RZ:1(linear) | SLERP:0(off)
+
+[1] Body：
+0KF => POS X:0.000000,Y:0.000000,Z:0.000000  / ROT X:0.000000,Y:0.000000,Z:90.000000 | EASE PX:1(linear),PY:1(linear),PZ:1(linear),RX:1(linear),RY:1(linear),RZ:1(linear) | SLERP:0(off)
+24KF => POS X:0.000000,Y:2.000000,Z:0.000000  / ROT X:0.000000,Y:0.000000,Z:90.000000 | EASE PX:1(linear),PY:1(linear),PZ:1(linear),RX:1(linear),RY:1(linear),RZ:1(linear) | SLERP:0(off)
+
