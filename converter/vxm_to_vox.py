@@ -201,7 +201,7 @@ class VxmParser:
             try:
                 lc_byte = f.read(1)
                 layer_count = ord(lc_byte) if lc_byte else 0
-            except: layer_count = 0
+            except Exception: layer_count = 0
             
             for _ in range(layer_count):
                 while True:

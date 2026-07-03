@@ -69,7 +69,7 @@ def log(msg: str):
         try:
             LOG_FILE_HANDLE.write(f"[OBJ2FBX] {msg}\n")
             LOG_FILE_HANDLE.flush()
-        except: pass
+        except Exception: pass
 
 def parse_ve2rbx_args() -> Tuple[Optional[Path], Optional[Path]]:
     # Extracts (edit_dir, log_path) from sys.argv
@@ -815,20 +815,20 @@ def main(edit_dir: Path, script_dir: Path):
             bpy.ops.mesh.select_all(action='SELECT')
             try:
                 bpy.ops.mesh.customdata_custom_splitnormals_clear()
-            except: pass
+            except Exception: pass
             
             try:
                 # Remove micro-gaps created by float precision
                 bpy.ops.mesh.remove_doubles(threshold=0.000001)
-            except:
+            except Exception:
                 try: bpy.ops.mesh.merge_by_distance(distance=0.000001)
-                except: pass
+                except Exception: pass
                 
             bpy.ops.object.mode_set(mode='OBJECT')
 
             # 2) Shade Flat Force
             try: bpy.ops.object.shade_flat()
-            except: pass
+            except Exception: pass
 
             log(f"[Optimize] {basename}: done")
             # --- OPTIMIZATION END ---
@@ -981,7 +981,7 @@ def main(edit_dir: Path, script_dir: Path):
                 try:
                     shared_image.reload()
                     log(f"Loaded & Reloaded Palette: {dest_palette}")
-                except:
+                except Exception:
                     log(f"Warning: Failed to reload image {shared_image.name}")
 
             except Exception as e:
@@ -1199,7 +1199,7 @@ def main(edit_dir: Path, script_dir: Path):
                 try:
                     img.reload()
                     log(f"Confirmed palette absolute relink: {img.name} -> {target_abs}")
-                except:
+                except Exception:
                      pass
 
     # Pack all external files (textures) into .blend to fix references when moved

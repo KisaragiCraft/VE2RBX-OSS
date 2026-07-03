@@ -73,7 +73,7 @@ def log(msg: str):
         try:
             LOG_FILE_HANDLE.write(f"[OBJ2FBX] {msg}\n")
             LOG_FILE_HANDLE.flush()
-        except: pass
+        except Exception: pass
 
 def parse_ve2rbx_args() -> Tuple[Optional[Path], Optional[Path]]:
     # Extracts (edit_dir, log_path) from sys.argv
