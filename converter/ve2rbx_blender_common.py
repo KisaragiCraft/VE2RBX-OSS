@@ -419,3 +419,95 @@ def normalize_obj_material_texture_paths(obj_dir: Path) -> None:
                 normalized_lines.append(line)
         mtl_path.write_text("\n".join(normalized_lines) + "\n", encoding="utf-8")
 
+def run_launcher_mode(script_path: Path) -> None:
+        print("[OBJ2FBX-Launcher] Environment: Standard Python")
+        script_dir = script_path.parent
+        
+        # Parse Args
+        target_edit_dir, passed_log_path = parse_ve2rbx_args()
+        
+        if passed_log_path:
+            setup_logger(passed_log_path)
+        
+        if not target_edit_dir:
+            target_edit_dir = find_edit_dir(script_dir)
+            if passed_log_path is None:
+                 # Auto-create log path in edit_dir/log if running standalone
+                 try:
+                     log_dir = target_edit_dir / "log"
+                     if target_edit_dir.exists():
+                         log_dir.mkdir(parents=True, exist_ok=True)
+                         passed_log_path = log_dir / "OBJ2FBX_standalone.log"
+                         setup_logger(passed_log_path)
+                         log(f"Standalone Log: {passed_log_path}")
+                 except Exception as e:
+                     print(f"Failed to auto-create standalone log: {e}")
+        
+        log(f"Target Edit Dir: {target_edit_dir}")
+        
+
+        try:
+            src_palette = target_edit_dir / "OutputOBJ" / "palette.png"
+            dst_palette = src_palette # Refinement: Overwrite/Normalize in place
+            if src_palette.exists():
+                ensure_palette_png(src_palette, dst_palette)
+            else:
+                log(f"Warning: Source palette {src_palette} not found. Skipping normalization.")
+        except Exception as e:
+            log(f"Launcher Error during palette prep: {e}")
+        
+        BLENDER_FOUNDATION_DIR = r"C:\Program Files\Blender Foundation"
+        print(f"[OBJ2FBX-Launcher] Searching for Blender in: {BLENDER_FOUNDATION_DIR}")
+
+        if not os.path.isdir(BLENDER_FOUNDATION_DIR):
+            print(f"[OBJ2FBX-Launcher] Error: Directory not found: {BLENDER_FOUNDATION_DIR}")
+            sys.exit(1)
+
+        version_pattern = re.compile(r"^Blender (\d+\.\d+)$", re.IGNORECASE)
+        candidates = []
+
+        for item in os.listdir(BLENDER_FOUNDATION_DIR):
+            full_path = os.path.join(BLENDER_FOUNDATION_DIR, item)
+            if os.path.isdir(full_path):
+                m = version_pattern.match(item)
+                if m:
+                    try:
+                        ver_float = float(m.group(1))
+                        exe_path = os.path.join(full_path, "blender.exe")
+                        if os.path.isfile(exe_path):
+                            candidates.append((ver_float, exe_path, item))
+                    except ValueError:
+                        pass
+        
+        if not candidates:
+            print("[OBJ2FBX-Launcher] Error: No valid Blender installations found.")
+            sys.exit(1)
+
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        selected_ver, selected_exe, selected_name = candidates[0]
+        print(f"[OBJ2FBX-Launcher] Selected: {selected_name}")
+
+        # Pass args to Blender
+        cmd = [
+            selected_exe,
+            "--background",
+            "--python", str(script_path),
+            "--",
+            str(target_edit_dir)
+        ]
+        if passed_log_path:
+            cmd.extend(["--log_path", str(passed_log_path)])
+
+        print(f"[OBJ2FBX-Launcher] Launching Blender: {' '.join(cmd)}")
+        
+        try:
+            subprocess.run(cmd, check=True)
+            print("[OBJ2FBX-Launcher] Blender process finished successfully.")
+            sys.exit(0)
+        except subprocess.CalledProcessError as e:
+            print(f"[OBJ2FBX-Launcher] Blender process failed with exit code {e.returncode}.")
+            sys.exit(e.returncode)
+        except Exception as e:
+            print(f"[OBJ2FBX-Launcher] Unexpected error: {e}")
+            sys.exit(1)
+
