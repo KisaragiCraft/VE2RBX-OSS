@@ -197,34 +197,25 @@ def parse_vxr_vxa(path: Path) -> Tuple[Dict[str, NodeInfo], List[str], List[str]
 
 
 
-# =========================================================================================
-# Main Logic
-# =========================================================================================
-def main(edit_dir: Path, script_dir: Path):
-    # Logging initiated by entry point
-    log("========================================")
-    log(" Starting OBJ2FBX Conversion")
-    log("========================================")
-    log(f"Edit Dir: {edit_dir}")
-    log(f"APPLY_PIVOT_WORLD: {APPLY_PIVOT_WORLD}")
-
-    # 1. Parse Metadata
+def load_metadata(edit_dir: Path):
     pivot_txt = edit_dir / "Pivot.txt"
     pivots_norm = parse_pivot_txt(pivot_txt)
     vox_sizes = parse_vox_sizes(edit_dir / "OutputVOX")
-    
-    vxr_txt = edit_dir / "VXR&VXA.txt"
-    node_dict, root_names, ordered_names = parse_vxr_vxa(vxr_txt)
-    log(f"Loaded {len(node_dict)} nodes from VXR&VXA.txt")
 
-    # 2. Blender Init
+    vxr_txt = edit_dir / "VXR&VXA.txt"
+    node_dict, _root_names, ordered_names = parse_vxr_vxa(vxr_txt)
+    log(f"Loaded {len(node_dict)} nodes from VXR&VXA.txt")
+    return pivots_norm, vox_sizes, node_dict, ordered_names
+
+
+def initialize_scene():
     log("Initializing Blender Scene...")
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.context.scene.name = IMPORT_ROOT_NAME
 
-    # 3. Import & Template Creation
+
+def import_templates(obj_dir: Path, pivots_norm, vox_sizes):
     log("Importing OBJ templates...")
-    obj_dir = edit_dir / "OutputOBJ"
     if not obj_dir.exists():
         raise FileNotFoundError(f"{obj_dir} does not exist")
 
@@ -233,13 +224,13 @@ def main(edit_dir: Path, script_dir: Path):
 
     for obj_file in obj_files:
         basename = os.path.splitext(obj_file.name)[0].lower()
-        
+
         # Import
         if hasattr(bpy.ops.wm, "obj_import"):
             bpy.ops.wm.obj_import(filepath=str(obj_file))
         else:
             bpy.ops.import_scene.obj(filepath=str(obj_file))
-        
+
         # Find Mesh
         selected = bpy.context.selected_objects
         mesh_obj = None
@@ -247,7 +238,7 @@ def main(edit_dir: Path, script_dir: Path):
             if o.type == 'MESH':
                 mesh_obj = o
                 break
-        
+
         if mesh_obj:
             # PIVOT (Preserved)
             if APPLY_PIVOT_WORLD and basename in pivots_norm:
@@ -259,35 +250,35 @@ def main(edit_dir: Path, script_dir: Path):
             # This reduces planar geometry while protecting UVs, before any joining occurs.
             log(f"[Optimize] {basename}: Decimate(Planar 5deg) + Delimit UV")
             bpy.context.view_layer.objects.active = mesh_obj
-            
+
             # (A) Decimate: Planar (= DISSOLVE) - REFINED
             mod = mesh_obj.modifiers.new("Decimate", 'DECIMATE')
             mod.decimate_type = 'DISSOLVE'
             mod.angle_limit = math.radians(1.0) # Reduced from 5.0 to 1.0 to prevent shading artifacts
             try:
                 # Protect ALL boundaries to prevent shading bleed
-                mod.delimit = {'UV', 'NORMAL', 'SHARP', 'MATERIAL'} 
+                mod.delimit = {'UV', 'NORMAL', 'SHARP', 'MATERIAL'}
             except Exception:
                 pass
             bpy.ops.object.modifier_apply(modifier=mod.name)
 
             # (B) Normal Fix & Cleanup (Strict)
             # Remove artifacts caused by Decimate
-            
+
             # 1) Clear Custom Normals & Merge tiny doubles
             bpy.ops.object.mode_set(mode='EDIT')
             bpy.ops.mesh.select_all(action='SELECT')
             try:
                 bpy.ops.mesh.customdata_custom_splitnormals_clear()
             except Exception: pass
-            
+
             try:
                 # Remove micro-gaps created by float precision
                 bpy.ops.mesh.remove_doubles(threshold=0.000001)
             except Exception:
                 try: bpy.ops.mesh.merge_by_distance(distance=0.000001)
                 except Exception: pass
-                
+
             bpy.ops.object.mode_set(mode='OBJECT')
 
             # 2) Shade Flat Force
@@ -296,13 +287,16 @@ def main(edit_dir: Path, script_dir: Path):
 
             log(f"[Optimize] {basename}: done")
             # --- OPTIMIZATION END ---
-            
+
             templates[basename] = mesh_obj
             bpy.ops.object.select_all(action='DESELECT')
         else:
             log(f"Warning: imported {obj_file.name} but found no mesh object.")
 
-    # 4. Tree Construction
+    return templates
+
+
+def build_node_tree(ordered_names, node_dict, templates):
     log("Constructing Node Tree...")
     node_objects: Dict[str, bpy.types.Object] = {}
 
@@ -325,7 +319,7 @@ def main(edit_dir: Path, script_dir: Path):
                         template_key = key
                         assigned = True
                         break
-        
+
         log(f"[TEMPLATE] {name} | vxm={node.vxm_basename} | key={template_key} | assigned={assigned}")
 
         if target_template:
@@ -337,9 +331,9 @@ def main(edit_dir: Path, script_dir: Path):
             obj = bpy.data.objects.new(node.name, None)
             obj.empty_display_type = 'PLAIN_AXES'
             bpy.context.collection.objects.link(obj)
-        
+
         node_objects[name] = obj
-    
+
     for name in ordered_names:
         node = node_dict[name]
         obj = node_objects[name]
@@ -348,13 +342,16 @@ def main(edit_dir: Path, script_dir: Path):
             obj.parent = parent_obj
             obj.matrix_parent_inverse = parent_obj.matrix_world.inverted()
 
-    # 5. Apply Transforms
+    return node_objects
+
+
+def apply_node_transforms(ordered_names, node_dict, node_objects):
     log("Applying Transforms...")
     for name in ordered_names:
         node = node_dict[name]
         obj = node_objects[name]
         is_empty = (obj.data is None)
-        
+
         if any(node.pos):
             px, py, pz = node.pos
             bx = px * VOXEL_SCALE
@@ -365,7 +362,7 @@ def main(edit_dir: Path, script_dir: Path):
             obj.location = (0.0, 0.0, 0.0)
 
         base_x = 0.0 if is_empty else 90.0
-        
+
         # Enforce XZY mode strictly (Fix for axis flipping)
         obj.rotation_mode = 'XZY'
 
@@ -379,7 +376,7 @@ def main(edit_dir: Path, script_dir: Path):
             by = nz
             bz = -ny
             by = -by
-            
+
             # Log debug info for key nodes
             if any(t in node.name for t in ['MR4', 'MR5', 'SR15', 'SR16', 'SR17', 'SR18', 'GR1']):
                 log(f"[RotXZY] {node.name}: Raw({rx},{ry},{rz}) -> EulerXZY({bx:.2f}, {by:.2f}, {bz:.2f})")
@@ -389,20 +386,20 @@ def main(edit_dir: Path, script_dir: Path):
             bx = base_x
             obj.rotation_euler = (math.radians(bx), 0.0, 0.0)
 
-    # 6. Cleanup Templates
+
+def cleanup_templates(templates):
     for tpl in templates.values():
         bpy.data.objects.remove(tpl, do_unlink=True)
 
-    # ----------------------------------------------------
-    # 7 & 8. Bake, Join, Materials, Export (Unified OutputFBX)
-    # ----------------------------------------------------
+
+def bake_and_join(node_objects, edit_dir: Path):
     final_objects = []
 
     if not KEEP_HIERARCHY_MODE:
         log("Starting Final Process: Material Split & Join...")
         all_meshes = [o for o in node_objects.values() if o.type == 'MESH']
         bpy.context.view_layer.update()
-        
+
         # --- UNIFIED OUTPUT DIR ---
         dest_dir = edit_dir / "OutputFBX"
         try:
@@ -411,11 +408,11 @@ def main(edit_dir: Path, script_dir: Path):
             log(f"Output Dir: {dest_dir}")
         except Exception as e:
             log(f"Error creating OutputFBX dir: {e}")
-            
+
         # 1. Prepare Palette in Destination (Crucial for Relative/Copy mode)
         src_raw = edit_dir / "OutputOBJ" / "palette.png"
         dest_palette = dest_dir / "palette.png"
-        
+
         if src_raw.exists():
             try:
                  ensure_palette_png(src_raw, dest_palette)
@@ -435,10 +432,10 @@ def main(edit_dir: Path, script_dir: Path):
                         shared_image = img
                         is_loaded = True
                         break
-                
+
                 if not shared_image:
                     shared_image = bpy.data.images.load(str(dest_palette), check_existing=False) # Load new
-                
+
                 # Enforce Path & Reload
                 shared_image.filepath = str(dest_palette)
                 shared_image.filepath_raw = str(dest_palette)
@@ -466,7 +463,7 @@ def main(edit_dir: Path, script_dir: Path):
                 bsdf.location = (0, 0)
                 # Force OPAQUE - Fix Translucency
                 bsdf.inputs['Alpha'].default_value = 1.0
-                
+
                 links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
                 if shared_image:
                     tex = nodes.new('ShaderNodeTexImage')
@@ -475,14 +472,14 @@ def main(edit_dir: Path, script_dir: Path):
                     tex.interpolation = 'Closest'
                     # CONNECT COLOR ONLY - DO NOT CONNECT ALPHA
                     links.new(tex.outputs['Color'], bsdf.inputs['Base Color'])
-            
+
             # Helper: Force Blend Mode OPAQUE (Eevee/Viewport)
             mat.blend_method = 'OPAQUE'
             return mat
 
         mat_std = get_mat("pallete", False)
         mat_emit = get_mat("pallete_emit", True)
-        
+
         # Normalize Objects
         for obj in all_meshes:
             use_emit = False
@@ -493,49 +490,49 @@ def main(edit_dir: Path, script_dir: Path):
             obj.data.materials.clear()
             if use_emit: obj.data.materials.append(mat_emit)
             else: obj.data.materials.append(mat_std)
-                
+
         # Bake (Matrix Burn-In & Determinant Fix)
         log("Baking Transforms (Matrix-Burn-In Mode)...")
         bpy.context.view_layer.update()
-        
+
         import bmesh
         from mathutils import Matrix
 
         for obj in all_meshes:
             if not obj or obj.type != 'MESH' or not obj.data:
                 continue
-                
+
             M = obj.matrix_world.copy()
             obj.data.transform(M)
-            
+
             det = M.determinant()
             if det < 0:
                 log(f"  [Bake] {obj.name}: Negative Determinant ({det:.4f}) -> Flipping Faces.")
                 bm = bmesh.new()
                 bm.from_mesh(obj.data)
                 for f in bm.faces:
-                    f.normal_flip() 
+                    f.normal_flip()
                 bm.to_mesh(obj.data)
                 bm.free()
-            
+
             obj.parent = None
             obj.matrix_parent_inverse = Matrix.Identity(4)
             obj.matrix_world = Matrix.Identity(4)
-            
+
             obj.location = (0.0, 0.0, 0.0)
             obj.rotation_euler = (0.0, 0.0, 0.0)
             obj.scale = (1.0, 1.0, 1.0)
-            
+
             obj.data.update()
-            
+
         bpy.context.view_layer.update()
-        
+
         # Cleanup
         for obj in bpy.data.objects:
             if obj.type != 'MESH' and obj.name not in ['Camera', 'Light']:
                  if obj not in all_meshes:
                      bpy.data.objects.remove(obj, do_unlink=True)
-                     
+
         # Join (Split by Tri Limit)
         log("Joining Meshes (Split by 19500 tris limit)...")
 
@@ -619,12 +616,15 @@ def main(edit_dir: Path, script_dir: Path):
     else:
         log("KEEP_HIERARCHY_MODE: True (Skip Bake/Join)")
         final_objects = list(node_objects.values())
-        
+
         # Ensure dest dir exists even in hierarchy mode
         dest_dir = edit_dir / "OutputFBX"
         dest_dir.mkdir(parents=True, exist_ok=True)
 
+    return final_objects, dest_dir
 
+
+def inject_watermark(final_objects, node_objects):
     # --- Watermark / Ownership Tag (FBX Custom Properties) ---
     WATERMARK_KEY = "VE2RBX_CreatedBy"
     WATERMARK_VAL = "Created by KisaragiKoubou"
@@ -640,6 +640,8 @@ def main(edit_dir: Path, script_dir: Path):
                 log(f"Watermark set failed: {o.name} : {e}")
     log(f"Watermark injected: {WATERMARK_KEY}='{WATERMARK_VAL}' (count={count_wm})")
 
+
+def export_all(final_objects, dest_dir: Path, edit_dir: Path):
     # Final Outputs
     out_blend = dest_dir / f"{EXPORT_BASE_NAME}.blend"
     out_fbx = dest_dir / f"{EXPORT_BASE_NAME}.fbx"
@@ -647,12 +649,12 @@ def main(edit_dir: Path, script_dir: Path):
     export_blend = export_dir / out_blend.name
     export_fbx = export_dir / out_fbx.name
     export_palette = export_dir / "palette.png"
-    
+
     log(f"Preparing Export to: {out_fbx}")
     log(f"ASCII Export staging dir: {export_dir}")
     shutil.copy2(dest_dir / "palette.png", export_palette)
     log(f"Copied palette to ASCII staging: {export_palette}")
-    
+
     # Texture Final Check (Reload palette instances from safe absolute path first)
     for img in bpy.data.images:
         if "palette" in img.name.lower():
@@ -690,7 +692,7 @@ def main(edit_dir: Path, script_dir: Path):
     # Export FBX
     if final_objects:
         select_final_objects(final_objects)
-        
+
         # Debug Material Refs
         for m in bpy.data.materials:
                  if m.use_nodes:
@@ -725,6 +727,45 @@ def main(edit_dir: Path, script_dir: Path):
         export_static_glb(final_objects, export_dir, dest_dir, export_palette, EXPORT_BASE_NAME, GLB_EXPORT_FILE_NAME)
     else:
         log("No objects to export.")
+
+
+# =========================================================================================
+# Main Logic
+# =========================================================================================
+def main(edit_dir: Path, script_dir: Path):
+    # Logging initiated by entry point
+    log("========================================")
+    log(" Starting OBJ2FBX Conversion")
+    log("========================================")
+    log(f"Edit Dir: {edit_dir}")
+    log(f"APPLY_PIVOT_WORLD: {APPLY_PIVOT_WORLD}")
+
+    # 1. Parse Metadata
+    pivots_norm, vox_sizes, node_dict, ordered_names = load_metadata(edit_dir)
+
+    # 2. Blender Init
+    initialize_scene()
+
+    # 3. Import & Template Creation
+    templates = import_templates(edit_dir / "OutputOBJ", pivots_norm, vox_sizes)
+
+    # 4. Tree Construction
+    node_objects = build_node_tree(ordered_names, node_dict, templates)
+
+    # 5. Apply Transforms
+    apply_node_transforms(ordered_names, node_dict, node_objects)
+
+    # 6. Cleanup Templates
+    cleanup_templates(templates)
+
+    # ----------------------------------------------------
+    # 7 & 8. Bake, Join, Materials, Export (Unified OutputFBX)
+    # ----------------------------------------------------
+    final_objects, dest_dir = bake_and_join(node_objects, edit_dir)
+
+
+    inject_watermark(final_objects, node_objects)
+    export_all(final_objects, dest_dir, edit_dir)
 
     log("Done.")
 
