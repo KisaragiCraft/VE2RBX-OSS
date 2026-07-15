@@ -66,7 +66,8 @@ body[data-lang="en"] [data-en] {
 }
 
 h1,
-h2 {
+h2,
+h3 {
   margin: 0;
   letter-spacing: 0;
 }
@@ -81,25 +82,36 @@ h2 {
   line-height: 1.25;
 }
 
-#status-text[data-status="success"] {
-  color: var(--accent-dark);
-}
-
-#status-text[data-status="warning"] {
-  color: var(--warning);
-}
-
-#status-text[data-status="danger"] {
-  color: var(--danger);
+h3 {
+  font-size: 17px;
 }
 
 .lang-toggle,
 .secondary-action,
-.primary-action {
+.primary-action,
+.danger-action {
   border: 1px solid var(--line);
   border-radius: 8px;
   cursor: pointer;
   min-height: 42px;
+}
+
+.summary-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin-bottom: 20px;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.summary-output {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .lang-toggle {
@@ -181,6 +193,20 @@ input[type="file"] {
   line-height: 1.55;
 }
 
+.selection-summary,
+.form-feedback {
+  min-height: 20px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.form-feedback[data-status="danger"] {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .primary-action {
   border-color: var(--accent);
   background: var(--accent);
@@ -193,9 +219,134 @@ input[type="file"] {
 }
 
 .primary-action:disabled,
-.secondary-action:disabled {
+.secondary-action:disabled,
+.danger-action:disabled {
   cursor: not-allowed;
   opacity: 0.58;
+}
+
+.job-detail-panel {
+  padding: 22px;
+}
+
+.jobs-panel {
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  align-self: stretch;
+}
+
+.jobs-panel-scroll {
+  position: absolute;
+  inset: 0;
+  padding: 22px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.jobs-panel h2 + .job-list {
+  margin-top: 12px;
+}
+
+.jobs-panel .job-list + h2 {
+  margin-top: 24px;
+}
+
+.job-list {
+  display: grid;
+  gap: 12px;
+}
+
+.job-card {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--muted);
+  border-radius: 8px;
+  background: #fbfaf7;
+}
+
+.job-card.selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.job-card.status-running,
+.job-card.status-completed {
+  border-left-color: var(--accent);
+}
+
+.job-card.status-cancelling,
+.job-card.status-cancelled,
+.job-card.status-failed {
+  border-left-color: var(--danger);
+}
+
+.job-card.status-completed_with_warnings {
+  border-left-color: var(--warning);
+}
+
+.job-status,
+.job-meta,
+.job-output,
+.empty-state {
+  margin: 0;
+}
+
+.job-status {
+  font-weight: 800;
+}
+
+.job-meta,
+.job-output,
+.empty-state {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 5px;
+}
+
+.danger-action {
+  padding: 0 14px;
+  border-color: var(--danger);
+  background: #fff7f7;
+  color: var(--danger);
+}
+
+.job-detail-panel {
+  margin-top: 20px;
+}
+
+.detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+#detail-status[data-status="completed"],
+#detail-status[data-status="running"] {
+  color: var(--accent-dark);
+}
+
+#detail-status[data-status="completed_with_warnings"] {
+  color: var(--warning);
+}
+
+#detail-status[data-status="cancelling"],
+#detail-status[data-status="cancelled"],
+#detail-status[data-status="failed"] {
+  color: var(--danger);
 }
 
 .status-panel {
@@ -257,6 +408,10 @@ input[type="file"] {
   white-space: pre-wrap;
 }
 
+.job-detail-panel .log-box {
+  min-height: 300px;
+}
+
 @media (max-width: 860px) {
   .shell {
     width: min(100vw - 20px, 680px);
@@ -264,7 +419,8 @@ input[type="file"] {
   }
 
   .topbar,
-  .status-head {
+  .status-head,
+  .detail-head {
     align-items: stretch;
   }
 
@@ -272,11 +428,25 @@ input[type="file"] {
     grid-template-columns: 1fr;
   }
 
+  .jobs-panel,
+  .jobs-panel-scroll {
+    max-height: 70vh;
+  }
+
+  .jobs-panel-scroll {
+    position: static;
+  }
+
   .status-head {
     flex-direction: column;
   }
 
-  .secondary-action {
+  .detail-head {
+    flex-direction: column;
+  }
+
+  .detail-head .secondary-action,
+  .job-actions button {
     width: 100%;
   }
 

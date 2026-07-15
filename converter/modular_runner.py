@@ -64,6 +64,10 @@ def get_blender_exe() -> str | None:
         if found:
             return found
 
+    if sys.platform == "darwin":
+        candidate = "/Applications/Blender.app/Contents/MacOS/Blender"
+        return candidate if os.path.isfile(candidate) else None
+
     search_roots = [
         r"C:\Program Files\Blender Foundation",
         r"C:\Program Files (x86)\Blender Foundation",

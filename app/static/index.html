@@ -16,6 +16,13 @@
         <button class="lang-toggle" type="button" id="lang-toggle">EN</button>
       </header>
 
+      <section class="summary-strip" id="job-summary" aria-live="polite">
+        <span><span data-ja>変換中</span><span data-en>Running</span>: 0 / 2</span>
+        <span><span data-ja>待機</span><span data-en>Queued</span>: 0</span>
+        <span><span data-ja>完了</span><span data-en>Finished</span>: 0</span>
+        <span class="summary-output"><span data-ja>出力先</span><span data-en>Output</span>: <span id="default-output-root">-</span></span>
+      </section>
+
       <section class="workspace" aria-label="VE2RBX OSS converter">
         <form class="panel input-panel" id="convert-form">
           <div class="field-group">
@@ -49,37 +56,45 @@
             </span>
           </label>
 
+          <p class="selection-summary" id="selection-summary">
+            <span data-ja>フォルダまたはZIPを選択してください。</span>
+            <span data-en>Choose a folder or ZIP.</span>
+          </p>
+
           <button class="primary-action" id="submit-button" type="submit">
-            <span data-ja>変換開始</span>
-            <span data-en>Start conversion</span>
+            <span data-ja>変換キューに追加</span>
+            <span data-en>Add to conversion queue</span>
           </button>
+          <p class="form-feedback" id="form-feedback" role="status" aria-live="polite"></p>
         </form>
 
-        <section class="panel status-panel">
-          <div class="status-head">
-            <div>
-              <p class="eyebrow"><span data-ja>状態</span><span data-en>Status</span></p>
-              <h2 id="status-text"><span data-ja>待機中</span><span data-en>Idle</span></h2>
-            </div>
-            <button class="secondary-action" type="button" id="open-output-button" disabled>
-              <span data-ja>出力フォルダを開く</span>
-              <span data-en>Open output folder</span>
-            </button>
+        <section class="panel jobs-panel">
+          <div class="jobs-panel-scroll" tabindex="0" role="region" aria-label="変換ジョブ一覧 / Conversion jobs">
+            <h2><span data-ja>実行中・待機中</span><span data-en>Active and queued</span></h2>
+            <div class="job-list" id="active-job-list"></div>
+            <h2><span data-ja>完了した変換</span><span data-en>Finished conversions</span></h2>
+            <div class="job-list" id="job-history-list"></div>
           </div>
-
-          <dl class="meta-list">
-            <div>
-              <dt>Job ID</dt>
-              <dd id="job-id">-</dd>
-            </div>
-            <div>
-              <dt><span data-ja>出力先</span><span data-en>Output</span></dt>
-              <dd id="output-path">-</dd>
-            </div>
-          </dl>
-
-          <pre class="log-box" id="log-box">VE2RBX OSS ready.</pre>
         </section>
+      </section>
+
+      <section class="panel job-detail-panel" id="job-detail" aria-live="polite">
+        <div class="detail-head">
+          <div>
+            <p class="eyebrow"><span data-ja>選択中の変換</span><span data-en>Selected conversion</span></p>
+            <h2 id="detail-title"><span data-ja>ジョブを選択してください</span><span data-en>Select a job</span></h2>
+          </div>
+          <button class="secondary-action" type="button" id="detail-open-output" disabled>
+            <span data-ja>出力フォルダを開く</span>
+            <span data-en>Open output folder</span>
+          </button>
+        </div>
+        <dl class="meta-list">
+          <div><dt><span data-ja>状態</span><span data-en>Status</span></dt><dd id="detail-status">-</dd></div>
+          <div><dt>Job ID</dt><dd id="detail-job-id">-</dd></div>
+          <div><dt><span data-ja>出力先</span><span data-en>Output</span></dt><dd id="detail-output">-</dd></div>
+        </dl>
+        <pre class="log-box" id="job-log">VE2RBX OSS ready.</pre>
       </section>
     </main>
 

@@ -11,6 +11,7 @@ OSS_ROOT = Path(os.environ.get("VE2RBX_OSS_BUNDLE_ROOT", Path(__file__).resolve(
 DATA_ROOT = Path(os.environ.get("VE2RBX_OSS_RUNTIME_ROOT", OSS_ROOT)).resolve()
 APP_ROOT = OSS_ROOT / "app"
 STATIC_ROOT = APP_ROOT / "static"
+LAUNCHER_ENTRYPOINT = APP_ROOT / "launcher" / "local_launcher.py"
 CONVERTER_ENTRYPOINT = OSS_ROOT / "converter" / "modular_runner.py"
 RUNTIME_ROOT = DATA_ROOT / "runtime"
 UPLOAD_ROOT = RUNTIME_ROOT / "uploads"

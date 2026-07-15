@@ -15,7 +15,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from .jobs import jobs
+from .jobs import JobConflict, jobs
 from .paths import (
     CONVERTER_ENTRYPOINT,
     OUTPUT_ROOT,
@@ -34,7 +34,7 @@ from .paths import (
 
 HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
-JOB_ROUTE = re.compile(r"^/api/local/jobs/([a-f0-9]{32})(?:/(log|open-output))?$")
+JOB_ROUTE = re.compile(r"^/api/local/jobs/([a-f0-9]{32})(?:/(log|open-output|cancel))?$")
 API_TOKEN_HEADER = "X-VE2RBX-Token"
 API_TOKEN = os.environ.get("VE2RBX_OSS_API_TOKEN") or secrets.token_urlsafe(32)
 SHUTDOWN_GRACE_SECONDS = 5.0
@@ -215,6 +215,19 @@ class LocalHandler(SimpleHTTPRequestHandler):
                     "supports_zip": True,
                     "supports_folder_upload": True,
                     "api_token": API_TOKEN,
+                    "max_concurrent_jobs": jobs.max_concurrent_jobs,
+                },
+            )
+            return
+
+        if path == "/api/local/jobs":
+            self._send_json(
+                200,
+                {
+                    "ok": True,
+                    "jobs": [job.to_dict() for job in jobs.list()],
+                    "active_count": jobs.active_count(),
+                    "max_concurrent_jobs": jobs.max_concurrent_jobs,
                 },
             )
             return
@@ -233,7 +246,7 @@ class LocalHandler(SimpleHTTPRequestHandler):
                     body = b""
                 self._send(200, body, "text/plain; charset=utf-8")
                 return
-            if action == "open-output":
+            if action in {"open-output", "cancel"}:
                 self._send_error_json(405, "POST is required")
                 return
             self._send_json(200, {"ok": True, "job": job.to_dict()})
@@ -271,11 +284,24 @@ class LocalHandler(SimpleHTTPRequestHandler):
             return
 
         job_match = JOB_ROUTE.match(path)
-        if job_match and job_match.group(2) == "open-output":
-            if not self._require_api_token():
+        if job_match:
+            job_id, action = job_match.groups()
+            if action == "open-output":
+                if not self._require_api_token():
+                    return
+                self._open_output(job_id)
                 return
-            self._open_output(job_match.group(1))
-            return
+            if action == "cancel":
+                if not self._require_api_token():
+                    return
+                try:
+                    job = jobs.cancel(job_id)
+                    self._send_json(202, {"ok": True, "job": job.to_dict()})
+                except KeyError:
+                    self._send_error_json(404, "job not found")
+                except JobConflict as exc:
+                    self._send_error_json(409, str(exc))
+                return
 
         self._send_error_json(404, "not found")
 
@@ -329,7 +355,7 @@ class LocalHandler(SimpleHTTPRequestHandler):
                 raise UploadError("no complete VoxEdit project was found (.vxr and .vxa are required)")
 
             include_animation = fields.get("include_animation", "").lower() in {"1", "true", "yes", "on"}
-            job = jobs.start(project_root, include_animation)
+            job = jobs.start(project_root, include_animation, upload_dir=upload_dir)
             self._send_json(202, {"ok": True, "job": job.to_dict()})
         except UploadError as exc:
             self._send_error_json(400, str(exc))
@@ -342,6 +368,8 @@ class LocalHandler(SimpleHTTPRequestHandler):
             self._send_json(200, {"ok": True, "opened": str(path)})
         except KeyError:
             self._send_error_json(404, "job not found")
+        except JobConflict as exc:
+            self._send_error_json(409, str(exc))
         except Exception as exc:
             self._send_error_json(500, str(exc))
 

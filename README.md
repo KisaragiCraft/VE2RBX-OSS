@@ -57,6 +57,9 @@ Roblox caps each mesh at 20,000 vertices. VE2RBX merges VoxEdit's many small par
 **Fully local.**
 No account, no billing, and your project never leaves your computer.
 
+**Two conversions at once, with a clear queue.**
+VE2RBX runs up to two conversions simultaneously and queues additional jobs. You can cancel jobs individually; cancelling removes that job's partial output without interrupting the others.
+
 > Output formats: `.fbx`, `.glb`, `.obj`
 
 ## Gallery
@@ -79,6 +82,12 @@ A few projects converted with VE2RBX:
 5. Your files appear in `Documents\VE2RBXoutput`.
 
 **About the input:** the folder or ZIP must be a *complete* VoxEdit project containing both a `.vxr` and a `.vxa` file. A lone `.vxm` mesh file is not enough. Use English letters and numbers for the project folder name — the name is reused for export filenames, and non-English names can break Roblox texture references.
+
+### macOS
+
+Windows remains the primary download. When available, separate macOS releases provide ZIP assets for Apple Silicon (`arm64`) and Intel (`x86_64`). Blender must be installed separately.
+
+The macOS builds are ad-hoc signed and are **not notarized**. macOS may block the first launch. After trying to open the app once, open **System Settings > Privacy & Security** and choose **Open Anyway**.
 
 ## Output Files
 
@@ -106,7 +115,7 @@ Each conversion creates a folder named after your project inside `Documents\VE2R
 For everyday use, prefer the EXE above. To run from source instead:
 
 **Requirements**
-- Windows
+- Windows or macOS
 - Python 3.11 or newer
 - Blender installed, or `blender` / `blender.exe` available on your PATH
 
